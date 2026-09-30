@@ -1,7 +1,16 @@
 # Kyber local website and app
 
-The live QA findings, flow-level fixes, and reviewed before/after screenshots
-are documented in [`docs/qa/README.md`](docs/qa/README.md).
+## QA fixes — before vs. after
+
+| Flow | Before | After |
+| --- | --- | --- |
+| **1. Password recovery** | Malformed email triggered account lookup, showed “Couldn't find your account,” and reused Sign in loading.<br><br><img src="docs/qa/images/before/password-recovery-invalid-email.jpg" width="280" alt="Before: malformed recovery email reported as an unknown account"> | Format is checked before the request; recovery has its own loading text; stale errors clear on edit; empty validation still works.<br><br><img src="docs/qa/images/after/password-recovery-invalid-email.png" width="280" alt="After: malformed recovery email receives a format error"> |
+| **2. Registration code gate** | Invite code was required without a request-access or sales path.<br><br><img src="docs/qa/images/before/signup-code-gate.jpg" width="280" alt="Before: registration code gate without an access route"> | Invite-only policy is explicit and **Request access / Contact sales** is available; the code requirement remains enforced.<br><br><img src="docs/qa/images/after/signup-code-gate.png" width="280" alt="After: invite-only explanation with request access route"> |
+| **3. Homepage sales CTA** | Booking lived in the desktop header or mobile Menu, away from the value proposition.<br><br><img src="docs/qa/images/before/homepage-sales-cta-desktop.jpg" width="420" alt="Before: desktop hero without booking CTA"><br><img src="docs/qa/images/before/homepage-sales-cta-mobile.jpg" width="220" alt="Before: sales CTA inside mobile menu"> | **Book a call** now appears in the hero on desktop and 390 px mobile, using the existing calendar destination.<br><br><img src="docs/qa/images/after/homepage-sales-cta-desktop.png" width="420" alt="After: desktop hero with Book a call CTA"><br><img src="docs/qa/images/after/homepage-sales-cta-mobile.png" width="220" alt="After: mobile hero with visible Book a call CTA"> |
+| **4. Career application** | CV and one-minute video were both required at the first step.<br><br><img src="docs/qa/images/before/career-video-required.jpg" width="420" alt="Before: required career introduction video"> | CV stays required; video is optional, its purpose is explained, and type/50 MB validation is preserved when supplied.<br><br><img src="docs/qa/images/after/career-video-optional.png" width="420" alt="After: optional career introduction video"> |
+
+See the [concise QA evidence and verification notes](docs/qa/README.md). No
+production submission or deployment is implied by these local after-states.
 
 This workspace contains two Vite applications and a Fastify backend:
 
