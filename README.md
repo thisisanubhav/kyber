@@ -1,5 +1,8 @@
 # Kyber local website and app
 
+The live QA findings, flow-level fixes, and reviewed before/after screenshots
+are documented in [`docs/qa/README.md`](docs/qa/README.md).
+
 This workspace contains two Vite applications and a Fastify backend:
 
 - `website` — the public marketing site (`http://localhost:4173`)
