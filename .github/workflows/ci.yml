@@ -52,14 +52,14 @@ jobs:
       API_ORIGIN: http://127.0.0.1:4175
 
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
           cache: npm
       - run: npm ci
       - name: Scan source, dependencies, secrets, and configuration
-        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: fs
           scan-ref: .
@@ -103,7 +103,7 @@ jobs:
           docker build --file website/Dockerfile --build-arg VCS_REF="$GITHUB_SHA" --build-arg VITE_API_URL=http://127.0.0.1:4175 --tag kyber-website:ci .
           docker build --file app/Dockerfile --build-arg VCS_REF="$GITHUB_SHA" --build-arg VITE_API_URL=http://127.0.0.1:4175 --tag kyber-app:ci .
       - name: Scan backend image
-        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: kyber-backend:ci
           scanners: vuln,secret,misconfig
@@ -112,7 +112,7 @@ jobs:
           exit-code: "1"
           skip-setup-trivy: true
       - name: Scan website image
-        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: kyber-website:ci
           scanners: vuln,secret,misconfig
@@ -121,7 +121,7 @@ jobs:
           exit-code: "1"
           skip-setup-trivy: true
       - name: Scan app image
-        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: kyber-app:ci
           scanners: vuln,secret,misconfig
@@ -129,7 +129,7 @@ jobs:
           ignore-unfixed: true
           exit-code: "1"
           skip-setup-trivy: true
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always()
         with:
           name: kyber-release-metadata
