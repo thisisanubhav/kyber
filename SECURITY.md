@@ -18,7 +18,8 @@ remove unsupported images from deployment environments.
 
 ## Automated controls
 
-Pull requests and `main` are checked with tests, npm audit, Trivy filesystem and
-container scans, and CodeQL. Dependabot proposes npm, container base-image, and
-GitHub Actions updates. Release images include SBOM and provenance metadata and
-are published with digest attestations.
+Changes to `main` are checked with tests, npm audit, Trivy filesystem and
+container scans, and CodeQL. Repository vulnerability alerts remain enabled,
+but automated dependency pull requests are disabled; upgrades are tested and
+committed directly under the repository's direct-update policy. Release images
+include SBOM and provenance metadata and are published with digest attestations.

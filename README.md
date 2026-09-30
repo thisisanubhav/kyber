@@ -44,9 +44,11 @@ The provider-neutral staging definition is in
 [`deploy/staging`](deploy/staging/README.md). Pull requests and `main` pushes
 also run unit tests, builds, dependency and secret scanning, container scanning,
 migrations, and the black-box journey through `.github/workflows/ci.yml`.
-CodeQL and Dependabot add static analysis and scheduled dependency updates.
+CodeQL adds static analysis, while repository vulnerability alerts flag known
+dependency risk without opening update pull requests.
 GitHub Actions and container base images are pinned to immutable commits or
-manifest digests; Dependabot remains responsible for proposing upgrades.
+manifest digests. Dependency and action upgrades are tested and committed
+directly to `main` under the repository's direct-update policy.
 
 Additional release gates are available as `npm run load:smoke`,
 `npm run backup:verify`, `npm run sbom`, and `npm run release:manifest`.

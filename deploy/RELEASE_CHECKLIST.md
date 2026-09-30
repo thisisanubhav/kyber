@@ -19,7 +19,7 @@
 ## Release candidate
 
 - [ ] CI and CodeQL pass on the exact release commit.
-- [ ] Dependabot and scanner findings have no unaccepted high or critical risk.
+- [ ] Dependency alerts and scanner findings have no unaccepted high or critical risk.
 - [ ] Unit, build, integration, load smoke, and backup/restore gates pass.
 - [ ] The manual image workflow publishes a non-`latest` tag and records all three image digests.
 - [ ] SBOMs, provenance, and attestations can be verified from the deployment environment.
