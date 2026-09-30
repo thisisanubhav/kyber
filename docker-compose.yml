@@ -1,0 +1,172 @@
+name: kyber-local
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-kyber}
+      POSTGRES_USER: ${POSTGRES_USER:-kyber}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-kyber_local_only}
+    ports:
+      - "54329:5432"
+    volumes:
+      - kyber-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-kyber} -d ${POSTGRES_DB:-kyber}"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+
+  redis:
+    image: redis:8-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6389:6379"
+    volumes:
+      - kyber-redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+
+  storage:
+    profiles: ["full"]
+    image: chrislusf/seaweedfs:latest
+    command: server -s3 -dir=/data -ip=storage -s3.port=8333
+    ports:
+      - "9000:8333"
+      - "9333:9333"
+    volumes:
+      - kyber-storage:/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9333/cluster/status >/dev/null"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
+  clamav:
+    profiles: ["full"]
+    image: clamav/clamav-debian:stable
+    ports:
+      - "3310:3310"
+    volumes:
+      - kyber-clamav:/var/lib/clamav
+    healthcheck:
+      test: ["CMD", "clamdcheck.sh"]
+      interval: 15s
+      timeout: 10s
+      retries: 20
+      start_period: 90s
+
+  api:
+    profiles: ["full"]
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    command: ["node", "dist/server.js"]
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      METRICS_TOKEN: ${METRICS_TOKEN:-}
+      PORT: 4175
+      DATABASE_URL: ${DATABASE_URL:-postgres://kyber:kyber_local_only@postgres:5432/kyber}
+      DATABASE_SSL: ${DATABASE_SSL:-false}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT:-storage}
+      MINIO_PUBLIC_ENDPOINT: ${MINIO_PUBLIC_ENDPOINT:-localhost}
+      MINIO_PORT: ${MINIO_PORT:-8333}
+      MINIO_PUBLIC_PORT: ${MINIO_PUBLIC_PORT:-9000}
+      S3_SECURE: ${S3_SECURE:-false}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-kyber_local}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-kyber_local_secret}
+      MINIO_BUCKET: ${MINIO_BUCKET:-kyber-private}
+      STORAGE_DRIVER: s3
+      SMTP_HOST: ${SMTP_HOST:-mailpit}
+      SMTP_PORT: ${SMTP_PORT:-1025}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_REQUIRE_TLS: ${SMTP_REQUIRE_TLS:-false}
+      MAIL_FROM_AUTH: ${MAIL_FROM_AUTH:-Kyber Local <no-reply@joinkyber.local>}
+      MAIL_FROM_CAREERS: ${MAIL_FROM_CAREERS:-Kyber Careers <careers@joinkyber.local>}
+      REQUIRE_EMAIL_VERIFICATION: ${REQUIRE_EMAIL_VERIFICATION:-false}
+      APP_ORIGIN: ${APP_ORIGIN:-http://localhost:4174}
+      WEBSITE_ORIGIN: ${WEBSITE_ORIGIN:-http://localhost:4173}
+      API_ORIGIN: ${API_ORIGIN:-http://localhost:4175}
+      TOKEN_PEPPER: ${TOKEN_PEPPER:-kyber-local-development-pepper-change-before-deploy}
+      KYBER_SEED_REGISTRATION_CODE: ${KYBER_SEED_REGISTRATION_CODE:-KYBER-LOCAL-2026}
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
+      RUN_MIGRATIONS_ON_START: ${RUN_MIGRATIONS_ON_START:-true}
+    ports:
+      - "4175:4175"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      storage:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:4175/health/live"]
+      interval: 10s
+      timeout: 3s
+      retries: 15
+
+  worker:
+    profiles: ["full"]
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    command: ["node", "dist/worker.js"]
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      METRICS_TOKEN: ${METRICS_TOKEN:-}
+      DATABASE_URL: ${DATABASE_URL:-postgres://kyber:kyber_local_only@postgres:5432/kyber}
+      DATABASE_SSL: ${DATABASE_SSL:-false}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379}
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT:-storage}
+      MINIO_PORT: ${MINIO_PORT:-8333}
+      MINIO_PUBLIC_ENDPOINT: ${MINIO_PUBLIC_ENDPOINT:-localhost}
+      MINIO_PUBLIC_PORT: ${MINIO_PUBLIC_PORT:-9000}
+      S3_SECURE: ${S3_SECURE:-false}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-kyber_local}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-kyber_local_secret}
+      MINIO_BUCKET: ${MINIO_BUCKET:-kyber-private}
+      STORAGE_DRIVER: s3
+      SMTP_HOST: ${SMTP_HOST:-mailpit}
+      SMTP_PORT: ${SMTP_PORT:-1025}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_REQUIRE_TLS: ${SMTP_REQUIRE_TLS:-false}
+      MAIL_FROM_AUTH: ${MAIL_FROM_AUTH:-Kyber Local <no-reply@joinkyber.local>}
+      MAIL_FROM_CAREERS: ${MAIL_FROM_CAREERS:-Kyber Careers <careers@joinkyber.local>}
+      REQUIRE_EMAIL_VERIFICATION: ${REQUIRE_EMAIL_VERIFICATION:-false}
+      APP_ORIGIN: ${APP_ORIGIN:-http://localhost:4174}
+      WEBSITE_ORIGIN: ${WEBSITE_ORIGIN:-http://localhost:4173}
+      API_ORIGIN: ${API_ORIGIN:-http://localhost:4175}
+      TOKEN_PEPPER: ${TOKEN_PEPPER:-kyber-local-development-pepper-change-before-deploy}
+      CLAMAV_HOST: clamav
+      CLAMAV_PORT: 3310
+      CLAMAV_ENABLED: "true"
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
+      RUN_MIGRATIONS_ON_START: "false"
+    depends_on:
+      api:
+        condition: service_healthy
+      clamav:
+        condition: service_healthy
+
+volumes:
+  kyber-postgres:
+  kyber-redis:
+  kyber-storage:
+  kyber-clamav:

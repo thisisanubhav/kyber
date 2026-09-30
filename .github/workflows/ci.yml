@@ -1,0 +1,143 @@
+name: Kyber CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: kyber
+          POSTGRES_USER: kyber
+          POSTGRES_PASSWORD: kyber_ci_only
+        ports: ["54329:5432"]
+        options: >-
+          --health-cmd "pg_isready -U kyber -d kyber"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+      redis:
+        image: redis:8-alpine
+        ports: ["6389:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+      mailpit:
+        image: axllent/mailpit:latest
+        ports:
+          - "1025:1025"
+          - "8025:8025"
+    env:
+      NODE_ENV: development
+      DATABASE_URL: postgres://kyber:kyber_ci_only@127.0.0.1:54329/kyber
+      REDIS_URL: redis://127.0.0.1:6389
+      SMTP_HOST: 127.0.0.1
+      SMTP_PORT: 1025
+      REQUIRE_EMAIL_VERIFICATION: "true"
+      TOKEN_PEPPER: kyber-ci-token-pepper-not-for-production
+      KYBER_SEED_REGISTRATION_CODE: KYBER-CI-2026
+      APP_ORIGIN: http://127.0.0.1:4174
+      WEBSITE_ORIGIN: http://127.0.0.1:4173
+      API_ORIGIN: http://127.0.0.1:4175
+
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Scan source, dependencies, secrets, and configuration
+        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,secret,misconfig
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+      - run: npm test
+      - run: npm run build
+      - run: npm audit --audit-level=high
+      - run: npm audit signatures
+      - name: Create release metadata
+        run: |
+          npm run sbom --silent > kyber-sbom.spdx.json
+          npm run release:manifest --silent > release-manifest.json
+      - run: npm run migrate
+      - name: Start API and worker
+        run: |
+          npm run start --workspace backend > /tmp/kyber-api.log 2>&1 &
+          npm run start:worker --workspace backend > /tmp/kyber-worker.log 2>&1 &
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:4175/health/ready >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/kyber-api.log
+          cat /tmp/kyber-worker.log
+          exit 1
+      - run: npm run test:integration --workspace backend
+        env:
+          KYBER_INTEGRATION_REGISTRATION_CODE: KYBER-CI-2026
+      - run: npm run load:smoke
+      - run: npm run backup:verify
+        env:
+          KYBER_DB_PORT: 54329
+          KYBER_DB_PASSWORD: kyber_ci_only
+      - name: Build deployable images
+        run: |
+          docker build --file backend/Dockerfile --build-arg VCS_REF="$GITHUB_SHA" --tag kyber-backend:ci .
+          docker build --file website/Dockerfile --build-arg VCS_REF="$GITHUB_SHA" --build-arg VITE_API_URL=http://127.0.0.1:4175 --tag kyber-website:ci .
+          docker build --file app/Dockerfile --build-arg VCS_REF="$GITHUB_SHA" --build-arg VITE_API_URL=http://127.0.0.1:4175 --tag kyber-app:ci .
+      - name: Scan backend image
+        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
+        with:
+          image-ref: kyber-backend:ci
+          scanners: vuln,secret,misconfig
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+          skip-setup-trivy: true
+      - name: Scan website image
+        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
+        with:
+          image-ref: kyber-website:ci
+          scanners: vuln,secret,misconfig
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+          skip-setup-trivy: true
+      - name: Scan app image
+        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
+        with:
+          image-ref: kyber-app:ci
+          scanners: vuln,secret,misconfig
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+          skip-setup-trivy: true
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: kyber-release-metadata
+          path: |
+            kyber-sbom.spdx.json
+            release-manifest.json
+      - name: Print service logs on failure
+        if: failure()
+        run: |
+          cat /tmp/kyber-api.log || true
+          cat /tmp/kyber-worker.log || true

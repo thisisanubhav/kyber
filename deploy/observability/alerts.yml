@@ -1,0 +1,58 @@
+groups:
+  - name: kyber-api
+    rules:
+      - alert: KyberApiUnavailable
+        expr: up{job="kyber-api"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: Kyber API metrics target is unavailable
+
+      - alert: KyberApiHighErrorRate
+        expr: |
+          sum(rate(kyber_http_requests_total{job="kyber-api",status_code=~"5.."}[5m]))
+          /
+          clamp_min(sum(rate(kyber_http_requests_total{job="kyber-api"}[5m])), 0.001)
+          > 0.02
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: Kyber API 5xx rate is above 2%
+
+      - alert: KyberApiHighAverageLatency
+        expr: |
+          sum(rate(kyber_http_request_duration_seconds_sum{job="kyber-api"}[5m]))
+          /
+          clamp_min(sum(rate(kyber_http_request_duration_seconds_count{job="kyber-api"}[5m])), 0.001)
+          > 0.5
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Kyber API average latency is above 500 ms
+
+      - alert: KyberOutboxStalled
+        expr: kyber_outbox_oldest_seconds{job="kyber-api"} > 300
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: A durable Kyber job has remained unpublished for over five minutes
+
+      - alert: KyberApplicationScanFailed
+        expr: kyber_application_failed_scans{job="kyber-api"} > 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: One or more career uploads exhausted malware-scan processing
+
+      - alert: KyberDatabasePoolWaiting
+        expr: kyber_db_pool_connections{job="kyber-api",state="waiting"} > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Requests are waiting for a PostgreSQL connection

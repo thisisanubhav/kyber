@@ -1,0 +1,83 @@
+name: kyber-staging
+
+x-service-defaults: &service-defaults
+  image: ${KYBER_BACKEND_IMAGE:?Set KYBER_BACKEND_IMAGE to an immutable image digest}
+  env_file:
+    - path: ${KYBER_ENV_FILE:-.env}
+      required: true
+  init: true
+  restart: unless-stopped
+  read_only: true
+  tmpfs:
+    - /tmp:size=64m,mode=1777
+  cap_drop: [ALL]
+  security_opt:
+    - no-new-privileges:true
+  logging:
+    driver: json-file
+    options:
+      max-size: 10m
+      max-file: "5"
+
+services:
+  migrate:
+    <<: *service-defaults
+    profiles: [release]
+    command: ["node", "dist/migrate.js"]
+    restart: "no"
+
+  api:
+    <<: *service-defaults
+    command: ["node", "dist/server.js"]
+    ports:
+      - "127.0.0.1:4175:4175"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:4175/health/ready"]
+      interval: 10s
+      timeout: 3s
+      retries: 12
+      start_period: 15s
+
+  worker:
+    <<: *service-defaults
+    command: ["node", "dist/worker.js"]
+
+  website:
+    image: ${KYBER_WEBSITE_IMAGE:?Set KYBER_WEBSITE_IMAGE to an immutable image digest}
+    init: true
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m,mode=1777
+      - /var/cache/nginx:size=32m,uid=101,gid=101
+      - /var/run:size=4m,uid=101,gid=101
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    ports:
+      - "127.0.0.1:4173:8080"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+
+  app:
+    image: ${KYBER_APP_IMAGE:?Set KYBER_APP_IMAGE to an immutable image digest}
+    init: true
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m,mode=1777
+      - /var/cache/nginx:size=32m,uid=101,gid=101
+      - /var/run:size=4m,uid=101,gid=101
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    ports:
+      - "127.0.0.1:4174:8080"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 6

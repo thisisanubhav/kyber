@@ -1,0 +1,145 @@
+name: Publish release images
+
+on:
+  workflow_dispatch:
+    inputs:
+      registry:
+        description: OCI registry hostname
+        required: true
+        type: string
+      namespace:
+        description: Registry namespace or project
+        required: true
+        type: string
+      tag:
+        description: Immutable release tag, for example v1.0.0
+        required: true
+        type: string
+      api_url:
+        description: Public HTTPS API origin compiled into both frontends
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+  attestations: write
+  packages: write
+
+concurrency:
+  group: publish-${{ inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: release
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Validate immutable release inputs
+        env:
+          REGISTRY: ${{ inputs.registry }}
+          NAMESPACE: ${{ inputs.namespace }}
+          RELEASE_TAG: ${{ inputs.tag }}
+          API_URL: ${{ inputs.api_url }}
+        run: |
+          set -eu
+          test -n "$REGISTRY"
+          test -n "$NAMESPACE"
+          test -n "$RELEASE_TAG"
+          test "$RELEASE_TAG" != latest
+          case "$RELEASE_TAG" in *[[:space:]]*|*/*) exit 1;; esac
+          case "$API_URL" in https://*) ;; *) exit 1;; esac
+
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ${{ inputs.registry }}
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+
+      - name: Build and publish backend
+        id: backend
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: .
+          file: backend/Dockerfile
+          push: true
+          tags: ${{ inputs.registry }}/${{ inputs.namespace }}/kyber-backend:${{ inputs.tag }}
+          build-args: VCS_REF=${{ github.sha }}
+          provenance: mode=max
+          sbom: true
+
+      - name: Attest backend image
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
+        with:
+          subject-name: ${{ inputs.registry }}/${{ inputs.namespace }}/kyber-backend
+          subject-digest: ${{ steps.backend.outputs.digest }}
+          push-to-registry: true
+
+      - name: Build and publish website
+        id: website
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: .
+          file: website/Dockerfile
+          push: true
+          tags: ${{ inputs.registry }}/${{ inputs.namespace }}/kyber-website:${{ inputs.tag }}
+          build-args: |
+            VCS_REF=${{ github.sha }}
+            VITE_API_URL=${{ inputs.api_url }}
+          provenance: mode=max
+          sbom: true
+
+      - name: Attest website image
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
+        with:
+          subject-name: ${{ inputs.registry }}/${{ inputs.namespace }}/kyber-website
+          subject-digest: ${{ steps.website.outputs.digest }}
+          push-to-registry: true
+
+      - name: Build and publish app
+        id: app
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: .
+          file: app/Dockerfile
+          push: true
+          tags: ${{ inputs.registry }}/${{ inputs.namespace }}/kyber-app:${{ inputs.tag }}
+          build-args: |
+            VCS_REF=${{ github.sha }}
+            VITE_API_URL=${{ inputs.api_url }}
+          provenance: mode=max
+          sbom: true
+
+      - name: Attest app image
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
+        with:
+          subject-name: ${{ inputs.registry }}/${{ inputs.namespace }}/kyber-app
+          subject-digest: ${{ steps.app.outputs.digest }}
+          push-to-registry: true
+
+      - name: Write digest manifest
+        env:
+          REGISTRY: ${{ inputs.registry }}
+          NAMESPACE: ${{ inputs.namespace }}
+          RELEASE_TAG: ${{ inputs.tag }}
+          BACKEND_DIGEST: ${{ steps.backend.outputs.digest }}
+          WEBSITE_DIGEST: ${{ steps.website.outputs.digest }}
+          APP_DIGEST: ${{ steps.app.outputs.digest }}
+        run: |
+          {
+            echo "release_tag=$RELEASE_TAG"
+            echo "backend=$REGISTRY/$NAMESPACE/kyber-backend@$BACKEND_DIGEST"
+            echo "website=$REGISTRY/$NAMESPACE/kyber-website@$WEBSITE_DIGEST"
+            echo "app=$REGISTRY/$NAMESPACE/kyber-app@$APP_DIGEST"
+          } > image-digests.txt
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: kyber-image-digests-${{ inputs.tag }}
+          path: image-digests.txt
+          if-no-files-found: error
+          retention-days: 90

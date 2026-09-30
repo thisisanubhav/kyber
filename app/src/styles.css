@@ -1,0 +1,40 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+:root { color: #f0f3fa; background: #0b0f1e; font-family: Inter, system-ui, sans-serif; font-synthesis: none; }
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 320px; }
+button, input { font: inherit; }
+:focus-visible { outline: 2px solid #96a9ff; outline-offset: 3px; }
+.auth-shell { min-height: 100vh; display: grid; place-items: center; padding: 48px 24px; background: radial-gradient(circle at 50% 40%, #151c34 0, #0b0f1e 45%, #080c17 100%); }
+.auth-card { width: min(100%, 420px); padding: 38px 42px; background: rgba(15, 20, 38, .92); border: 1px solid #30374a; border-radius: 16px; box-shadow: 0 32px 80px rgba(0,0,0,.28); }
+.app-brand { display: block; margin-bottom: 8px; color: #f7f8fd; text-align: center; text-decoration: none; font-size: 27px; font-weight: 700; letter-spacing: -.03em; }
+.auth-card h1 { margin: 22px auto 8px; max-width: 280px; text-align: center; font-size: 31px; line-height: 1.05; letter-spacing: -.035em; }
+.subtitle { margin: 0 0 30px; color: #a8aec1; text-align: center; line-height: 1.5; }
+.auth-card form { display: grid; gap: 10px; }
+.auth-card label { margin-top: 10px; font-size: 14px; font-weight: 600; }
+.auth-card input { width: 100%; height: 50px; padding: 0 13px; color: #eef1fb; background: #0d1222; border: 1px solid #343c52; border-radius: 8px; }
+.auth-card input::placeholder { color: #747c92; }
+.auth-card input[aria-invalid="true"] { border-color: #d95f72; }
+.auth-card small { color: #858da4; line-height: 1.4; }
+.error-message { margin: 0 0 14px; padding: 12px 13px; color: #f06e80; background: rgba(160, 34, 54, .18); border: 1px solid rgba(217, 71, 94, .35); border-radius: 7px; line-height: 1.4; }
+.success-message { margin: 20px 0; padding: 14px; color: #bce7c6; background: rgba(41, 135, 71, .16); border: 1px solid rgba(90, 195, 122, .32); border-radius: 7px; line-height: 1.55; }
+.primary-button, .secondary-button { width: 100%; min-height: 50px; margin-top: 12px; padding: 10px 18px; color: #101522; background: #f0f3fa; border: 0; border-radius: 7px; font-weight: 600; cursor: pointer; }
+.primary-button:disabled { opacity: .65; cursor: wait; }
+.secondary-button { color: #edf0f7; background: transparent; border: 1px solid #424a61; }
+.recovery-button { justify-self: end; margin: 3px 0 0; padding: 8px 0; color: #edf0f7; background: transparent; border: 0; cursor: pointer; }
+.recovery-button:disabled { color: #8c94a9; cursor: wait; }
+.auth-footer { margin: 22px 0 0; color: #a8aec1; text-align: center; line-height: 1.5; }
+.auth-footer a, .sales-link { color: #f0f3fa; }
+.steps { display: flex; justify-content: center; gap: 8px; margin-bottom: 25px; }
+.steps span { width: 42px; height: 8px; background: #242a3d; border-radius: 99px; }
+.steps span.active { background: #f0f3fa; }
+.invite-note { display: grid; gap: 6px; margin-bottom: 20px; padding: 14px; color: #aeb5c8; background: #10172b; border-left: 3px solid #96a9ff; font-size: 13px; line-height: 1.45; }
+.invite-note strong { color: #f0f3fa; }
+.sales-link { min-height: 44px; margin-top: 15px; display: flex; align-items: center; justify-content: center; gap: 8px; border: 1px solid #424a61; border-radius: 7px; text-align: center; text-decoration: none; font-size: 14px; }
+
+@media (max-width: 480px) {
+  .auth-shell { padding: 28px 16px; place-items: center; }
+  .auth-card { padding: 30px 24px; border-radius: 13px; }
+  .app-brand { font-size: 25px; }
+  .auth-card h1 { font-size: 28px; }
+}
